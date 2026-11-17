@@ -4,6 +4,17 @@
 ## 1. Giới thiệu & Phân công thành viên
 Dự án xây dựng hệ thống quản lý thư viện sử dụng Python và cơ sở dữ liệu quan hệ SQLite (`thuvien.db`), hỗ trợ song song hai giao diện: **CLI (dòng lệnh)** và **GUI (cửa sổ Tkinter)**.
 
+### Các tính năng & Quy tắc nghiệp vụ chính
+* **Khởi tạo dữ liệu động & An toàn:** Tự động thiết lập lược đồ CSDL chuẩn hóa (kèm khóa chính, khóa ngoại, chỉ mục Index) và sinh bộ dữ liệu mẫu dựa trên Mã số sinh viên (MSSV), tích hợp cơ chế chống ghi đè dữ liệu hiện có.
+* **Quản lý danh mục (CRUD):** Thêm, xem, cập nhật, xóa thông tin Sách và Độc giả; tra cứu lịch sử mượn trả chi tiết của từng độc giả.
+* **Kiểm soát quy trình Mượn / Trả (Transaction):**
+  * Tự động tính hạn trả tiêu chuẩn (**14 ngày** kể từ ngày mượn) và cập nhật số lượng tồn kho theo thời gian thực.
+  * Áp dụng chặt chẽ các ràng buộc nghiệp vụ: giới hạn tối đa **3 cuốn sách** đang mượn/độc giả, chặn mượn trùng đầu sách đang giữ, chặn mượn khi sách đã hết tồn kho và chặn xác nhận trả trùng phiếu đã hoàn tất.
+* **Quản lý phạt trễ hạn & Thống kê:**
+  * Tự động tính phí phạt quá hạn (**5.000 VNĐ/ngày**), khóa quyền mượn mới đối với độc giả đang nợ phạt và mở khóa ngay sau khi thanh toán.
+  * Thống kê **Top 5 đầu sách** được mượn nhiều nhất tại thư viện.
+* **Giao diện đa chế độ:** Hỗ trợ giao diện dòng lệnh (CLI) hiển thị bảng kẻ khung chuẩn SQL và giao diện cửa sổ trực quan (Tkinter GUI) tích hợp nút chuyển đổi/tái tạo dữ liệu theo MSSV.
+
 | Thành viên | Phụ trách | Tệp tin chính |
 | :--- | :--- | :--- |
 | **TV1** | Thiết kế CSDL, ràng buộc khóa ngoại & sinh dữ liệu mẫu theo MSSV | `database.py`, `seed_data.py` |
