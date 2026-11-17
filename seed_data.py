@@ -35,15 +35,15 @@ def seed_database(mssv, db_path=DB_PATH, as_of=None):
     debtors = set(rng.sample(late_readers, rng.randint(2, len(late_readers) - 1)))
     eligible_readers = [reader_id for reader_id in reader_ids if reader_id not in debtors]
 
-    book_ids = range(1, len(BOOKS) + 1)
+    book_ids = list(range(1, len(BOOKS) + 1))
     late_books = dict(zip(rng.sample(book_ids, len(late_readers)), late_readers))
     past_counts = rng.sample(book_ids, len(BOOKS))
-    active_books = [1, *rng.sample(range(2, len(BOOKS) + 1), len(eligible_readers) - 1)]
-    active_readers = dict(zip(active_books, rng.sample(eligible_readers, len(eligible_readers))))
 
-    # Tạo lịch sử trả đúng hạn trước, mỗi độc giả có lịch mượn riêng.
-    next_borrow = {reader_id: today - timedelta(days=30 * (sum(past_counts) + 2))
-                   for reader_id in reader_ids}
+    # 1. Tạo lịch sử trả đúng hạn trước, mỗi độc giả có lịch mượn riêng.
+    next_borrow = {
+        reader_id: today - timedelta(days=30 * (sum(past_counts) + 2))
+        for reader_id in reader_ids
+    }
     for book_id, count in zip(book_ids, past_counts):
         for _ in range(count - int(book_id in late_books)):
             reader_id = rng.choice(reader_ids)
@@ -51,33 +51,99 @@ def seed_database(mssv, db_path=DB_PATH, as_of=None):
             due = borrowed + timedelta(days=14)
             returned = borrowed + timedelta(days=rng.randint(2, 14))
             loans.append(
-                (reader_id, book_id, borrowed.isoformat(), due.isoformat(),
-                 returned.isoformat(), 0, 0)
+                (
+                    reader_id,
+                    book_id,
+                    borrowed.isoformat(),
+                    due.isoformat(),
+                    returned.isoformat(),
+                    0,
+                    0,
+                )
             )
             next_borrow[reader_id] = returned + timedelta(days=rng.randint(1, 4))
 
-    # Phiếu trả trễ là phiếu cuối trong lịch sử của các độc giả được chọn.
+    # 2. Phiếu trả trễ là phiếu cuối trong lịch sử của các độc giả được chọn (tạo danh sách nợ phạt).
     for book_id, reader_id in late_books.items():
         borrowed = today - timedelta(days=rng.randint(45, 60))
         due = borrowed + timedelta(days=14)
         late_days = rng.randint(1, 12)
         returned = due + timedelta(days=late_days)
         loans.append(
-            (reader_id, book_id, borrowed.isoformat(), due.isoformat(),
-             returned.isoformat(), late_days * 5000, int(reader_id not in debtors))
+            (
+                reader_id,
+                book_id,
+                borrowed.isoformat(),
+                due.isoformat(),
+                returned.isoformat(),
+                late_days * 5000,
+                int(reader_id not in debtors),
+            )
         )
 
-    # Giữ một ca sách hết tồn và quá hạn để kiểm thử.
-    for book_id, (title, author) in enumerate(rng.sample(BOOKS, len(BOOKS)), 1):
-        total = 1 if book_id == 1 else rng.randint(2, 6)
-        books.append((book_id, title, author, total, total - int(book_id in active_readers)))
-        if book_id in active_readers:
-            borrowed = today - timedelta(days=21 if book_id == 1 else rng.randint(1, 10))
-            due = borrowed + timedelta(days=14)
-            loans.append(
-                (active_readers[book_id], book_id, borrowed.isoformat(), due.isoformat(),
-                 None, 0, 0)
-            )
+    # 3. Khởi tạo số lượng tổng từng đầu sách (sách 1 luôn có tổng = 1 để giữ ca hết tồn kho).
+    shuffled_books = rng.sample(BOOKS, len(BOOKS))
+    book_totals = {
+        book_id: (1 if book_id == 1 else rng.randint(3, 6))
+        for book_id in book_ids
+    }
+
+    # 4. Sinh ngẫu nhiên 5 - 9 phiếu đang mượn cho nhóm độc giả đủ điều kiện (tối đa 3 cuốn/người).
+    max_slots = len(eligible_readers) * 3
+    num_active = rng.randint(5, min(9, max_slots))
+
+    reader_active_books = {r_id: set() for r_id in eligible_readers}
+    book_active_count = {b_id: 0 for b_id in book_ids}
+    active_pairs = []
+
+    # Đảm bảo sách số 1 luôn được mượn hết (SoLuongCon = 0) để kiểm thử quy tắc hết sách
+    first_reader = rng.choice(eligible_readers)
+    reader_active_books[first_reader].add(1)
+    book_active_count[1] = 1
+    active_pairs.append((first_reader, 1))
+
+    while len(active_pairs) < num_active:
+        avail_readers = [r for r in eligible_readers if len(reader_active_books[r]) < 3]
+        if not avail_readers:
+            break
+        r_id = rng.choice(avail_readers)
+        avail_books = [
+            b
+            for b in book_ids
+            if b not in reader_active_books[r_id] and book_active_count[b] < book_totals[b]
+        ]
+        if not avail_books:
+            break
+        b_id = rng.choice(avail_books)
+        reader_active_books[r_id].add(b_id)
+        book_active_count[b_id] += 1
+        active_pairs.append((r_id, b_id))
+
+    # Chọn ngẫu nhiên 2 - 3 người trong số đang mượn bị trễ hạn với số ngày trễ khác nhau
+    borrowers_with_active = list({r_id for r_id, _ in active_pairs})
+    overdue_readers = set(
+        rng.sample(borrowers_with_active, rng.randint(2, min(3, len(borrowers_with_active))))
+    )
+    overdue_assigned = set()
+
+    for r_id, b_id in active_pairs:
+        if r_id in overdue_readers and r_id not in overdue_assigned:
+            # Mượn cách đây 16 - 28 ngày -> đã quá hạn 2 - 14 ngày
+            borrowed = today - timedelta(days=rng.randint(16, 28))
+            overdue_assigned.add(r_id)
+        else:
+            # Mượn cách đây 1 - 12 ngày -> vẫn trong hạn 14 ngày
+            borrowed = today - timedelta(days=rng.randint(1, 12))
+
+        due = borrowed + timedelta(days=14)
+        loans.append(
+            (r_id, b_id, borrowed.isoformat(), due.isoformat(), None, 0, 0)
+        )
+
+    for book_id, (title, author) in enumerate(shuffled_books, 1):
+        total = book_totals[book_id]
+        remaining = total - book_active_count[book_id]
+        books.append((book_id, title, author, total, remaining))
 
     init_db(db_path)
     with closing(get_connection(db_path)) as conn, conn:
