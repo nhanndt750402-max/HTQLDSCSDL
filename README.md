@@ -21,7 +21,7 @@ Dự án xây dựng hệ thống quản lý thư viện sử dụng Python và 
 | **TV2** | Các thao tác CRUD Sách, Độc giả, truy vấn lịch sử & đánh Index | `sql.py` |
 | **TV3** | Nghiệp vụ cốt lõi Mượn / Trả sách, kiểm soát giao dịch (Transaction) | `business_logic.py` |
 | **TV4** | Tính phạt trễ hạn tự động, kiểm tra nợ phạt, thanh toán & Top 5 sách | `advanced_logic1.py` |
-| **TV5** | Giao diện người dùng đồ họa (Tkinter) & bộ chuyển đổi dữ liệu | `main_gui.py`, `ui_adapter.py` |
+| **TV5** | Giao diện người dùng đồ họa (Tkinter) & bộ chuyển đổi dữ liệu | `maingui.py`, `ui_adapter.py` |
 | **TV6** | Giao diện CLI tổng hợp, kiểm thử tự động (QA/QC) & tài liệu dự án | `main.py`, `tests/test_thuvien.py`, `README.md` |
 
 ---
@@ -40,7 +40,7 @@ Mở Terminal tại thư mục gốc của dự án và chạy một trong hai c
    ```
 2. **Chạy giao diện cửa sổ đồ họa (Tkinter GUI):**
    ```bash
-   python main_gui.py
+   python maingui.py
    ```
 *(Lần đầu khởi chạy nếu chưa có `thuvien.db`, hệ thống sẽ yêu cầu nhập MSSV để sinh dữ liệu mẫu tự động).*
 
